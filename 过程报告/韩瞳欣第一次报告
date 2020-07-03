@@ -1,0 +1,632 @@
+主要做了两点内容：
+1.写出了文法对应的产生式方便进行递归下降子程序分析：
+PROGRAM -> int main SUB_PROGRAM.
+SUB_PROGRAM -> {STATEMENT_TABLE BACK}
+STATEMENT_TABLE -> ASSIGNMENT_STATEMENT STATEMENT_TABLE|VARIABLE STATEMENT_TABLE
+ASSIGNMENT_STATEMENT ->id = ARITHMETIC_EXPRESSION;
+ARITHMETIC_EXPRESSION -> ARITHMETIC_EXPRESSION w0 TERM|TERM
+TERM -> TERM w1 FACTOR|FACTOR
+FACTOR -> id|cons|(ARITHMETIC_EXPRESSION)
+VARIABLE -> TYPE ID_TABLE;
+TYPE -> int|float|char
+ID_TABLE -> id {,id}
+BACK -> return BACK_NUM
+BACK_NUM -> id|cons
+2.对老师给的pascal例程进行了类c改写，基本的函数已经实现完成，但是main函数在打开文件时就出现了错误，目前正在积极查阅解决中
+3.#include <iostream>
+4.#include <cmath>
+5.#include <cstring>
+6.#include <fstream>
+7.
+8.using namespace std;
+9.
+10.#define N 18
+11.
+12.//类c常数自动机
+13.int c_aut[8][5]={2,0,0,0,0,2,3,5,8,8,4,0,0,0,0,4,0,5,8,8,
+14.7,0,0,6,0,7,0,0,0,0,7,0,0,8,8,0,0,0,0,0};   //状态转换矩阵
+15.
+16.//关键字
+17.char Keys[N][15]={"int","main","float","char","return",".","{","}","=",";"
+18.,"(",")",",","+","-","*","/"};
+19.
+20.struct SemRecord                      //符号表结构
+21.{   char name[15];
+22.};
+23.
+24./*
+25.编码规则：
+26.标识符  1
+27.常数  2
+28.int 3
+29.main 4
+30.float 5
+31.char 6
+32.return 7
+33..   8
+34.{   9
+35.}   10
+36.=   11
+37.;   12
+38.(   13
+39.)   14
+40.,   15
+41.+   16
+42.-   17
+43.*   18
+44./   19
+45.*/
+46.
+
+47.//token结构
+48.struct wordinfo{
+49.    int code;
+50.    int value;
+51.};
+52.
+53.//类c常数自动机定义
+54.
+55.class c_cons                      
+56.{
+57.     private:
+58.        int aut[8][5];                   //状态转换矩阵
+59.        int s;                           //当前状态
+60.        int n,p,m,e,t;                   //尾数值，指数值，小数位数，指数符号，类型
+61.        double num;                      //常数 
+62.        char ch;                         //当前符号 
+63.     public:
+64.         c_cons();
+65.         double number(char *line,int *p);      //拼一个常数
+66.     private:
+67.        void ProcError();
+68.        int map(char ch);
+69.        int find(int s, char ch);
+70.        void act(int s, char ch);
+71.};
+72.
+73.//扫描器
+74.class Scan                                 
+75.{
+76.    private:
+77.        char *keywords[N];                 //关键字表、界符表
+78.        char line[50];                       //当前行
+79.        int i_line;
+80.        char ch;                               //当前字符
+81.        char strToken[15];                     //当前单词
+82.        int i_str;
+83.        int code,value;
+84.        int i;
+85.        c_cons num;                        //常数对象
+86.
+87.        SemRecord *p_ID;                        //符号表指针
+88.        int *p_m;
+89.        double *p_Cons;                           //常数表指针
+90.        int *p_n;
+91.        ifstream fin;                           //源程序文件
+92.
+93.    public:
+94.        Scan();
+95.        Scan(SemRecord *p1,int *p2,double *p3,int *p4);
+96.        void Read(wordinfo *token);                          //read(w)
+97.        int openfile(char *filename);
+98.
+99.    private:
+100.        void ProcError();
+101.        int IsLetter(char ch);
+102.        int IsDigit(char ch);
+103.        int Reserve(char *strToken);
+104.        int InsertID(char *strToken);
+105.        int InsertConst(double num);
+106.};
+107.
+
+108.//递归子程序分析类
+109.class Syntax                                  
+110.{
+111.    private:
+112.        wordinfo token;                        //单词Token
+113.        Scan sExam;                             //扫描器对象
+114.
+115.    public:
+116.        Syntax();
+117.        Syntax(SemRecord *p1,int *p2,double *p3,int *p4);
+118.        void Parse();
+119.
+120.    private:
+121.        void PROGRAM();                         //主程序
+122.        void SUB_PROGRAM();                     //分程序
+123.        void STATEMENT_TABLE();                 //语句表
+124.        void ASSIGNMENT_STATEMENT();            //赋值语句
+125.        void ARITHMETIC_EXPRESSION();           //表达式
+126.        void TERM();                            //项
+127.        void FACTOR();                          //因子
+128.        void ARITHMETIC_QUANTITY();             //算术量
+129.        void VARIABLE();                        //变量说明
+130.        void TYPE();                            //类型定义
+131.        void ID_TABLE();                        //标识符表
+132.        void BACK();                            //返回
+133.        void BACK_NUM();                        //返回值
+134.        int map(int code);
+135.};
+136.
+137.//类c常数处理机类成员定义
+138.
+139.c_cons::c_cons()
+140.{
+141.    int i,j;
+142.    for (i=0;i<8;i++)                          //初始化自动机矩阵
+143.        for (j=0;j<5;j++)
+144.            aut[i][j]=c_aut[i][j];
+145.    ch=' ';
+146.};
+147.
+148.void c_cons::ProcError()
+149.{
+150.    cout<<"err!"<<endl;
+151.}; 
+152.
+153.int c_cons::map(char ch)                    
+154.{  int j;
+155.   if (ch>='0' && ch<='9')
+156.       j=0; 
+157.   else if (ch=='.')
+158.       j=1;
+159.   else if (ch=='E'||ch=='e')
+160.       j=2; 
+161.   else if (ch=='+'||ch=='-')
+162.       j=3; 
+163.   else
+164.       j=4; 
+165.   return j;
+166.}
+167.
+168.int c_cons::find(int s, char ch)           //s---当前状态；ch---当前符号
+169.{  int i,j;                     //行和列
+170.   i=s-1;                    //将s映射到行标记i
+171.   j=map(ch);                //将ch映射到列标记j
+172.   return aut[i][j];            //返回下一个状态值
+173.}
+174.
+175.void c_cons::act(int s, char ch)
+176.{  
+177.    switch (s)
+178.    {
+179.        case 1: n=0; m=0; p=0; t=0; e=1; num=0;     break;
+180.        case 2: n=10*n+ch-48;                     break;
+181.        case 3: t=1;                              break;
+182.        case 4: n=10*n+ch-48;    m++;           break;
+183.        case 5: t=1;                              break;
+184.        case 6: if (ch=='-') e=-1;                break;
+185.        case 7: p=10*p+ch-48;                 break;
+186.        case 8: num=n*pow(10,e*p-m);            
+187.    }
+188.}
+189.
+190.double c_cons::number(char *line,int *p)              //拼一个常数
+191.{
+192.    s=1;
+193.    act(s,ch);                     //执行q1
+194.    while (s!=8)
+195.    {  
+196.        ch=line[*p];               //读取当前符号到ch中
+197.        (*p)++;
+198.        s=find(s,ch);               //查状态表  
+199.        if (s==0)
+200.            break;
+201.        act(s,ch);                  //执行qs
+202.    }
+203.    if (s==8)
+204.        return num;                 //输出num
+205.    else
+206.    {
+207.        ProcError();
+208.        return 0;      //错误处理
+209.    }
+210.};
+211.
+212.//扫描器类成员定义
+213.Scan::Scan(SemRecord *p1,int *p2,double *p3,int *p4)
+214.{
+215.     p_ID=p1;                       //扫描器用符号表和常数表的指针初始化       
+216.     p_m=p2;
+217.     p_Cons=p3;                         
+218.     p_n=p4;
+219.
+220.     int i;
+221.     for (i=0;i<N;i++)              //初始化关键字表
+222.        keywords[i]=Keys[i];
+223.
+224.     i_line=0;
+225.     line[i_line]='\0';
+226.};
+227.
+228.int Scan::openfile(char *filename)
+229.{
+230.    fin.open(filename);
+231.    if (!fin)
+232.    {
+233.        cout<<"Can't open input file.\n";
+234.        return 0;
+235.    }
+236.    return 1;
+237.};
+238.
+239.void Print(struct wordinfo token)                      //输出Token
+240.{
+241.    printf("(%d %d)",token.code,token.value);
+242.}
+243.
+244.void Scan::ProcError()
+245.{
+246.    printf("err!");
+247.}
+248.
+249.int Scan::IsLetter(char ch)                       //判断ch是否为字母
+250.{  if (ch>='A' && ch<='Z' || ch>='a' && ch<='z')
+251.       return 1;
+252.   else 
+253.       return 0;
+254.}
+255.
+256.int Scan::IsDigit(char ch)                       //判断ch是否为数字
+257.{  if (ch>='0' && ch<='9')
+258.       return 1;
+259.   else 
+260.       return 0;
+261.}
+262.
+263.int Scan::Reserve(char *strToken)              
+264.//用strToken中的单词去查关键字表。查到了，则返回该关键字的编码；
+265.                   //否则，返回0
+266.{   int i=0;
+267.    while (i<N)                               //设N为关键字表中元素的个数
+268.    {  if (!strcmp(keywords[i], strToken))
+269.           return (i+3);
+270.       i++;
+271.     }
+272.     return 0;
+273.}
+274.
+275.int Scan::InsertID(char *strToken)              
+276.//用strToken中的单词去查符号表。查到了，则返回该单词在表中的位置值；
+277.                    //否则，将strToken中的单词插入符号表的尾部，并返回位置值
+278.{   int i=0;
+279.    while (i<*p_m)                            //设m为符号表中已有的标识符的个数
+280.    {   if (!strcmp((p_ID+i)->name, strToken))
+281.           return i;
+282.        i++;
+283.     }
+284.     strcpy((p_ID+i)->name,strToken);
+285.     (*p_m)++;
+286.     return i;
+287.}
+288.
+289.int Scan::InsertConst(double num)             
+290. //用拼好的num去查常数表。查到了，则返回该单词在表中的位置值；
+291.                            //否则，将num插入常数表的尾部，并返回位置值
+292.{   int i=0;
+293.    while (i<*p_n)                            //设n为常数表中已有的常数的个数
+294.    {  if (p_Cons[i]==num)
+295.           return i;
+296.       i++;
+297.     }
+298.     p_Cons[i]=num;
+299.     (*p_n)++;
+300.     return i;
+301.}
+302.
+303.void Scan::Read(wordinfo *token)
+304.{
+305.    double const_num;                                //常数值变量
+306.
+307.    if (line[i_line]=='\0')                          //当行缓冲区空时，读入一行                
+308.    {
+309.        if (fin.getline(line,50,'\n'))                //读到了一行
+310.            i_line=0;
+311.        else
+312.        {
+313.            token->code=0;                        //文件结束，返回Token（0，-1）
+314.            token->value=-1;
+315.            return;
+316.        }
+317.    };
+318.
+319.    ch=line[i_line++];                            //读取当前单词的第一个符号到ch中
+320.
+321.    while (ch==' ')                                  //滤除空格
+322.        ch=line[i_line++];
+323.
+324.    i_str=0;
+325.                                   
+326.    if (IsLetter(ch))
+327.    {
+328.        while (IsLetter(ch)||IsDigit(ch))       //拼关键字或标识符
+329.        {   strToken[i_str++]=ch;               //将ch中的字符拼接到strToken中
+330.            ch=line[i_line++];                   //读取当前字符到ch
+331.        }
+332.        i_line--;                                //Retract()
+333.        strToken[i_str]='\0';
+334.        code=Reserve(strToken);                   //查关键字表；
+335.        if (!code)                                //未查到，是一个标识符
+336.        {
+337.            value=InsertID(strToken);            //将strToken中的单词插入到符号表中
+338.            token->code=1; 
+339.            token->value=value;
+340.        }
+341.        else
+342.        {
+343.            token->code=code; 
+344.            token->value=-1;
+345.        }
+346.    } 
+347.    else if (IsDigit(ch))                           //处理常数
+348.    {
+349.        i_line--;
+350.        const_num=num.number(line,&i_line);         //拼常数到const_num中             
+351.        i_line--; 
+352.
+353.        value=InsertConst(const_num);           //将const_num中的常数插入到常数表中
+354.        token->code=2; 
+355.        token->value=value;
+356.    }
+357.    else                                       //  处理界符或错误处理；
+358.    {
+359.        strToken[i_str++]=ch;                    //将ch中的字符拼接到strToken中；
+360.        if (ch==':')                             //    处理双界符":="；
+361.        {
+362.             ch=line[i_line++];
+363.             if (ch=='=')
+364.                 strToken[i_str++]=ch;
+365.             else
+366.                 i_line--;                         //回溯一个字符
+367.        }
+368.        strToken[i_str]='\0';
+369.        code=Reserve(strToken);              //查界符表
+370.        if (!code)                          //未查到 
+371.             ProcError();                //错误处理
+372.        else                            //生成并输出一个界符Token；
+373.        {
+374.             token->code=code; 
+375.             token->value=-1;
+376.        }
+377.    }
+378.};
+379.
+
+380.//语法分析类成员定义
+381.Syntax::Syntax(SemRecord *p1,int *p2,double *p3,int *p4):sExam(p1,p2,p3,p4)
+382.{
+383.};
+384.
+385.void Syntax::Parse()
+386.{
+387.    char filename[15];                             //文件名区
+388.
+389.    printf("please input file name:");             //输入文件名
+390.    scanf("%s",filename); 
+391.    
+392.    if (!sExam.openfile(filename))                 //打开文件
+393.        return;
+394.
+395.    sExam.Read(&token);                                    //read(w)
+396.    PROGRAM();      
+397.    if (!token.code)                                       //‘#’的Token为(0,-1)
+398.        printf("OK!");
+399.    else
+400.        printf("err");
+401.};
+402.
+403.void Syntax::PROGRAM()
+404.{
+405.    if (token.code == 3)                     //int 
+406.    {
+407.        sExam.Read(&token);
+408.        if (token.code == 4)                  //main
+409.        {
+410.            sExam.Read(&token);
+411.            SUB_PROGRAM();
+412.            if (token.code == 8)             //.
+413.            {
+414.                sExam.Read(&token);
+415.            }
+416.            else
+417.                cout<<"error!";
+418.        }
+419.        else 
+420.            cout<<"error!";
+421.    }
+422.    else
+423.        cout<<"error!";
+424.};
+425.
+426.void Syntax::SUB_PROGRAM()              //分程序
+427.{
+428.    if (token.code == 9)                 //{
+429.    {
+430.        sExam.Read(&token);
+431.        STATEMENT_TABLE();
+432.        BACK();
+433.        if (token.code == 10)              //}
+434.        {
+435.            sExam.Read(&token);
+436.        }
+437.        else 
+438.            cout<<"error!";
+439.    }
+440.    else 
+441.        cout<<"error!";
+442.};
+443.
+444.void Syntax::STATEMENT_TABLE()                //语句表
+445.{
+446.    if (token.code == 1)                //id
+447.    {
+448.        ASSIGNMENT_STATEMENT();
+449.        STATEMENT_TABLE();
+450.    }
+451.    else
+452.    {
+453.        VARIABLE();
+454.        STATEMENT_TABLE();
+455.    }  
+456.};
+457.void Syntax::ASSIGNMENT_STATEMENT()            //赋值语句
+458.{
+459.    if (token.code == 1)                  //id
+460.    {
+461.        sExam.Read(&token);
+462.        if (token.code == 11)               //=
+463.        {
+464.            sExam.Read(&token);
+465.            ARITHMETIC_EXPRESSION();
+466.        }
+467.        else
+468.            cout<<"error!";
+469.    }
+470.    else 
+471.        cout<<"error!"; 
+472.};
+473.
+474.int Syntax::map(int code)
+475.{
+476.    int i;
+477.    switch (code)
+478.    {
+479.        case 16:i=0;break;                  // +
+480.        case 17:i=0;break;                  // -
+481.        case 18:i=1;break;                  // *
+482.        case 19:i=1;break;                  // /
+483.        case 1: i=2;break;                  //标识符
+484.        case 2: i=2;break;                  //常数
+485.        case 13:i=3;break;                   //(
+486.        case 14:i=4;break;                   //)
+487.        default:i=5;                         //-1符号
+488.    }
+489.    return i;
+490.}
+491.
+492.void Syntax::ARITHMETIC_EXPRESSION()                //算术表达式
+493.{
+494.    int n=7;                                      //产生式个数
+495.    wordinfo syn[15];                            //语法栈
+496.    int top;                                     //栈顶指针
+497.    int top_in;                                  //移进指针
+498.    int handle[10];                              //<栈
+499.    int top_h;                                   //<栈顶指针
+500.    int prio[6][6]={3,1,1,1,3,3,
+501.                    3,3,1,1,3,3,
+502.                    3,3,0,0,3,3,
+503.                    1,1,1,1,2,0,
+504.                    3,3,0,0,3,3,
+505.                    1,1,1,1,0,4};              //优先分析表                             
+506.    int i,j;                                    //表行和列
+507.    int code;                                  //表项
+508.int rules[7][5]={{-1,16,-1},{-1,17,-1},{-1,14,-1},{-1,15,-1},{1},{2},{19,-1,20}};
+509. //产生式表,-1表示空位（非终结符的占位）
+510.    
+511.    syn[0].code=0;
+512.    top=0; top_in=1;
+513.    handle[0]=0;
+514.    top_h=0;
+515.
+516.    while (1)
+517.    {
+518.        //查分析表code=prio(i,j)
+519.        i=map(syn[top].code);              //定位行和列
+520.        j=map(token.code);
+521.        code=prio[i][j];                //查表
+522.        //空或OK
+523.        if (code==0 || code==4)
+524.            break;
+525.        //栈操作和输入操作
+526.        if (code<3)                                 //< or =
+527.        {
+528.            syn[top_in].code=token.code;                //进栈
+529.            syn[top_in].value=token.value;
+530.            if (code==1)                         //记录句柄的左端位置
+531.               handle[++top_h]=top+1; 
+532.            top=top_in++;
+533.            sExam.Read(&token);                          //read(w)  
+534.        }
+535.        else                                        //>
+536.        {
+537.           for (i=0;i<n;i++)                          //比较产生式
+538.           {
+539.               j=0;
+540.               while (rules[i][j] && rules[i][j]==(syn+handle[top_h]+j)->code)
+541.                   j++;
+542.               if (!rules[i][j] && handle[top_h]+j==top_in)       //匹配上了一个
+543.                   break;
+544.           }
+545.           if (i==n)
+546.             printf("error!");
+547.           else
+548.           {
+549.               syn[handle[top_h]].code=-1;                            //归约
+550.               top= handle[top_h]-1;
+551.               top_in= handle[top_h]+1;
+552.               top_h--;
+553.            }
+554.        }
+555.
+556.    }
+557.    if (!code)
+558.        printf("error!");
+559.}
+560.void Syntax::VARIABLE()                        //变量说明
+561.{
+562.    TYPE();
+563.    ID_TABLE();
+564.};
+565.void Syntax::TYPE()                            //类型定义
+566.{
+567.    switch (token.code)
+568.    {
+569.    case 3:                                      //int
+570.    case 5:                                      //float
+571.    case 6:      sExam.Read(&token);break;        //char
+572.    default:cout<<"error!";
+573.    }
+574.};
+575.
+576.void Syntax::ID_TABLE()                        //标识符表
+577.{
+578.    if (token.code== 1)                                 //标识符
+579.    {
+580.        sExam.Read(&token);
+581.        while (token.code== 15)                         //,
+582.        {
+583.            sExam.Read(&token);
+584.            if (token.code== 1)                         //标识符
+585.              sExam.Read(&token);
+586.            else
+587.                cout<<"error!";
+588.        }
+589.    }
+590.    else
+591.        cout<<"error!";
+592.};
+593.void Syntax::BACK()                            //返回
+594.{
+595.    if (token.code == 7)                       //return
+596.    {
+597.        BACK_NUM();
+598.    }
+599.    else
+600.        cout<<"error!";
+601.};
+602.void Syntax::BACK_NUM()                        //返回值
+603.{
+604.    switch (token.code)
+605.    {
+606.    case 1:                                   //id
+607.    case 2:  sExam.Read(&token);break;        //常数
+608.    default:cout<<"error!";
+609.    }
+610.};
+611.
+612.int main()
+613.{
+614.    
+615.}
+616.
