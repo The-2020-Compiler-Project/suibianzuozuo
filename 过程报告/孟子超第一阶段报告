@@ -1,0 +1,112 @@
+7月1日前个人工作总结：
+
+上机之前，我们先进行了分工，然后粗略的构想了一下编译器的大体结构和编译的顺序。第一次上机，我和几位组员开会商量了一下文法的大致格式，然后让
+负责文法设计的同学将文法先设计好，将PPT上的pascal文法简单修改成了c语言文法，在以后的工作中可能会为了简便做一些微调。随后，我们简单的讨论了
+一下接口的问题，然后正式开始了课设的进程。
+1.当前进展
+我负责中中间代码的设计和生成。现在已经仿照PPT设计好了四元式的格式。然后将语义动作函数插入到了文法中做成了翻译文法，具体如下：
+
+
+
+PROGRAM ->int main SUB_PROGRAM
+SUB_PROGRAM ->{STAMENT_TABLE BACK}
+VARIABLE -> TYPE ID_TABLE;
+ID_TABLE -> id {,id}
+STATEMENT_TABLE -> ASSIGNMENT_STATEMENT STATEMENT_TABLE | VARIABLE STATEMENT_TABLE | ω
+ASSIGNMENT_STATEMENT ->id PUSH(对应单词) =
+ ARITHMETIC_EXPRESSION ASSI(=);
+BACK -> return BACK_NUM
+BACK_NUM -> id | SIGNED_NUM
+	ARITHMETIC_EXPRESSION -> ARITHMETIC_EXPRESSION ω0 TERM GEQ(ω0)|TERM
+TERM -> TERM ω1  FACTORGEQ(ω1)|FACTOR 
+FACTOR -> ARITHMETIC_QUANTITY|(ARITHMETIC_EXPRESSION)
+ARITHMETIC_QUANTITY -> ID | CONS
+TYPE -> int | float | char
+ID -> W | ISTR 
+ISTR -> W ISTR | NUM ISTR | ω
+CONS -> SIGNED_NUM | REAL
+SIGNED_NUM ->  UNSINGED_NUM | UNSIGNED_NUM
+UNSIGNED_NUM ->NUM UNSIGNED_NUM | ω
+REAL -> SIGNED_NUM . UNSIGNED_NUM
+
+确定好语义动作函数的插入位置之后，我对算术表达式和赋值语句的语义动作函数进行了初步实现：
+#include<iostream>
+#include<stack>	
+using namespace std;
+
+struct wordinfo  //token结构 
+{
+	int code;
+	int	value;
+};
+
+struct Quaternion  //四元式数据结构 
+{
+	char ope;  
+	double ele1;
+	double ele2;
+	double res;
+};
+
+
+stack <int> SEM;  //语义栈
+stack <Quaternion> QT;   //存放四元式 
+
+double eval(double a,double b,char c)  //求值函数 
+{
+	double r;
+	if(c == '+')
+	{
+		r = a + b;
+	}
+	else if(c == '-')
+	{
+		r = a - b;
+	}
+	else if(c == '*')
+	{
+		r = a * b;
+	}
+	else if(c == '/')
+	{
+		r = a / b;
+	}
+	
+	return r;
+}
+
+void GEQ(char c)    //表达式四元式生成函数 
+{
+	int t;
+	Quaternion q;
+	q.ope = c;
+	q.ele2 = SEM.top();
+	SEM.pop();
+	q.ele1 = SEM.top();
+	q.res = eval(q.ele1,q.ele2,q.ope);
+	QT.push(q);         //将产生的四元式压入栈 
+}
+
+void ASSI()    //赋值函数 
+{
+	Quaternion q;
+	q.ope = '=';
+	q.ele1 = SEM.top();
+	SEM.pop();
+	q.res = SEM.top();
+	SEM.pop();
+ } 
+
+int main()
+{
+	
+}
+
+2、遇到的问题
+首先是对知识掌握的不牢固。只会做单个步骤的题目，但不知道怎么将词法分析、语法分析、符号表、中间代码生成、优化和目标代码
+生成这及部分联系起来。所以我们先复习了一下PPT，然后对各个部分的入口、作用以及出口总结了一下，然后才明白了编译器工作的
+原理。
+
+3、下一步计划：
+接下来我主备先和组员讨论一下接口的问题，以便于接下来的工作，然后用代码实现将语义动作函数插入到文法当中，来完整的实现四
+元式的生成。接下来对程序进行测试，保证没有错误之后，再和组员共同考虑代码优化和目标代码生成的部分
