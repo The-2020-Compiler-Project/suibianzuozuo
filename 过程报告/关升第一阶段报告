@@ -1,0 +1,52 @@
+工作内容：
+复习了编译原理课程内容，组内讨论了文法。在和组内成员的讨论，以及帮助之下。加深了对知识的理解。负责的语义分析还在学习之中
+程序定义
+<程序> à int main <分程序>.
+PROGRAM ->int main SUB_PROGRAM
+<分程序> à { <语句表><返回>}
+SUB_PROGRAM ->{STAMENT_TABLE BACK}
+·语句定义
+<变量说明> à <类型><标识符表> ;
+VARIABLE -> TYPE ID_TABLE;
+<标识符表> à <标识符><下一标识> 
+<下一标识> -> ,<标识符表> | ω   //这两行对应于下面的一句
+ID_TABLE -> id {,id}
+<语句表> à <赋值语句> <语句表> | <变量说明><语句表> | ω
+STATEMENT_TABLE -> ASSIGNMENT_STATEMENT STATEMENT_TABLE | VARIABLE STATEMENT_TABLE | ω
+<赋值语句> à <标识符> = <算术表达式> ;
+ASSIGNMENT_STATEMENT ->id = ARITHMETIC_EXPRESSION;
+<返回>àreturn <返回值>; 
+BACK -> return BACK_NUM
+<返回值> -> <标识符> | <整数>
+BACK_NUM -> id | SIGNED_NUM
+·算术表达式定义
+	<算术表达式>-><算术表达式>ω0 <项> | <项>
+	ARITHMETIC_EXPRESSION -> ARITHMETIC_EXPRESSION ω0 TERM|TERM
+<项> à <项> ω1  <因子> | <因子>
+TERM -> TERM ω1  FACTOR|FACTOR
+<因子> à <算术量> | ( <算术表达式> )
+FACTOR -> ARITHMETIC_QUANTITY|(ARITHMETIC_EXPRESSION)
+<算术量> à <标识符> | <常数> 
+ARITHMETIC_QUANTITY -> ID | CONS
+·类型定义
+<类型> à int | float | char
+TYPE -> int | float | char
+·单词集定义
+<标识符> à <字母> <标识符字符串>
+ID -> W | ISTR 
+<标识符字符串>à  <字母> <标识符字符串> | <数字> <标识符字符串> | ω
+ISTR -> W ISTR | NUM ISTR | ω
+<常数> à <整数> | <实数>
+CONS -> SIGNED_NUM | REAL
+<整数> à ω0 <无符号数> | <无符号数>
+SIGNED_NUM ->  UNSINGED_NUM | UNSIGNED_NUM
+<无符号数> à <数字> <无符号数> | ω
+UNSIGNED_NUM ->NUM UNSIGNED_NUM | ω
+<实数> à <整数> . <无符号数>
+REAL -> SIGNED_NUM . UNSIGNED_NUM
+·字符集定义
+<字母> à A|B|C|…|Z|a|b|c|…|z
+<数字> à 0|1|2|3|4|5|6|7|8|9
+ 
+  其中：ω0 — +或-
+        ω1 — *或/
