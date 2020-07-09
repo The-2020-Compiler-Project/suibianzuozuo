@@ -1,0 +1,605 @@
+一.摘要
+负责文法设计和词法分析。设计含有选择和循环结构的词法分析器，并通过表格
+把符号表打印出来
+关键词：选择和循环结构，打印符号表
+
+二.阶段设计任务及要求
+1.设计任务
+设计文法，设计能一次送入一个Token序列的词法分析器，修改文法为左递归，
+把设计的符号表填好；
+2.设计要求
+文法要正确生成简易的程序，容易转换为程序表示，也就是非终结符要有明确意义，
+从中容易看出程序包含的所有单词，即终结符，每一个产生式包含一个完整的语义，
+易于进行语义分析；词法分析器传出的Token序列包含单词本身，单词的类码；
+符号表的设计遵从给出的结构，能按照给出的数据结构、通过给定的指针正确访问。
+
+三.第二阶段总体设计
+1.文法
+消除文法中的左递归；
+2.词法分析器
+设计多字母界符表，pword2[MUTP][30]={"&&","||","==",">=","<=","++","--"}，
+通过选择判断确认扫描得到的界符的具体内容，借助一些外部变量，实现对扫描到的
+界符进行标识，按照顺序一次调用传出一个Token序列；
+3.符号表填写
+首先选出界符和关键字符号，填入时typel和addr都设置为空指针，对于标识符，通过
+遍历整个符号表，确认没有被定义过，则填入符号表，typel填指向对应typel项的指针，
+addr填入它在活动记录中的位置。
+
+四.程序设计与实现
+1.文法
+·程序定义
+<程序>  <类型> main <分程序>.
+<分程序>  { <复合语句><返回>}
+
+·语句定义
+<变量说明>  <类型><标识符表>; | <字符类型><标识符表char>;  
+<标识符表>   <标识符> , <标识符表> | <赋值语句>,<标识符> | ω
+<复合语句> -> <语句表> | <选择语句> | <循环语句> 
+<选择语句> -> <选择条件><选择主体>
+<选择主体> -> ; | <复合语句> | {<复合语句>}
+<选择条件> -> if (<逻辑表达>) |else <else分支>
+<else分支> -> if (<逻辑表达>) | ω
+<循环语句> -> <循环条件> <循环主体>
+<循环主体> -> ; | <复合语句> | {<复合语句>}
+<循环条件> -> while (<逻辑表达>) | for <循环判断> | do {<复合语句>}while(<逻辑表达式>)
+<循环判断> -> <赋值语句>;<继续判断> |; <继续判断>
+<继续判读> -> <算术表达式>;<逻辑表达> | ;<逻辑表达>
+<语句表>  <赋值语句> ;<语句表> | <变量说明><语句表> | ω
+<赋值语句>  <标识符> = <算术表达式> 
+<返回>return <返回值>; 
+<返回值> -> <常数> | <标识符>
+·算术表达式定义 
+<算术表达式>   <项> <余项>
+<余项> ->ω0 <项> <余项> | ω 
+<项>  <因子> <下一因子>
+<下一因子> -> ω1  <因子> <下一因子> | ω
+<因子>  <算术量><单目运算符> | ω2 <算术量>  | ( <算术表达式> )
+<单目运算符> -> ω2  | ω
+<算术量>  <标识符> | <常数>  |’<字母>’
+·逻辑表达式定义
+	<逻辑表达> -> <逻辑表达式> <逻辑表达> | ω3 <逻辑表达式> 
+	<逻辑表达式> -> <算术表达式> <算术比较>
+	<算术比较> -> ω4 <算术表达式> | ω
+·类型定义
+<类型>  int | float 
+<字符类型> -> char 
+·单词集定义
+<标识符>   <字母> <标识符字符串>
+<标识符字符串> <字母> <标识符字符串> | <数字> <标识符字符串> | ω
+<常数>  <整数> | <实数>
+<整数>  ω0 <无符号数> 
+<无符号数>   <数字> <无符号数>
+<实数>  <整数> . <无符号数>
+·字符集定义
+<字母>  A|B|C|…|Z|a|b|c|…|z
+<数字>  0|1|2|3|4|5|6|7|8|9
+
+其中：ω0 — +或-
+        ω1 — *或/
+ω2 — ++或—
+ω3 — &&或||或!
+ω4 — !=或==或>=或<=
+
+2.词法扫描器和符号表打印
+（3）第二次待选文法
+·程序定义
+<程序>  <函数声明><程序> | <函数定义><程序> | int main <分程序>  
+<分程序>  { <复合语句><返回>} | {<复合语句><返回>}<函数定义列>
+<函数声明> -><类型><标识符>(<形参表>);|<类型><标识符>();
+<函数定义> -><类型><标识符>(<形参表>)<分程序> | <类型><标识符>()<分程序>
+<函数定义列>-><函数定义>,<函数定义列> | <函数定义>
+·语句定义	
+<变量说明>  <数类型><标识符表>; | <字符类型><标识符表char>;  | <结构体类型><结构体初始化语句>;
+<标识符表>  <数组初始化语句>,<标识符表>|<指针标识符初始化语句>,<标识符表> | <赋值语句>,<标识符表> | <标识符> , <标识符表> | <数组初始化语句> | <指针标识符初始化> | <赋值语句> | <标识符>
+<标识符表char>  <字符数组初始化语句>,<标识符表char> | <指针标识符初始化语句>,<标识符表char> | <赋值语句>,<标识符表char> | <标识符> , <标识符表char> | <字符数组初始化语句> | <指针标识符初始化语句> | <赋值语句> | <标识符>
+<数组初始化语句> -><标识符> [ <无符号整数> ] | <标识符> [] = <一维> | <标识符> [] [<无符号整数>]= <二维> | <标识符> [ <无符号整数> ] = <一维> | <标识符> [ <无符号整数> ] [<无符号整数>]= <二维>
+<字符数组初始化语句> -><标识符> [ <无符号整数> ] | <标识符> [] = <字符串> | <标识符> [] [<无符号整数>]= <字符串组> | <标识符> [ <无符号整数> ] = <字符串> | <标识符> [ <无符号整数> ] [<无符号整数>]= <二维字符串>
+<结构体初始化语句> -> <标识符><结构体> |<结构体><标识符序列> | <标识符><结构体><标识符列> | <结构体><标识符列>={<赋值表>} | <标识符><结构体><标识符列>={<赋值表>}
+<指针标识符初始化语句> ->*<标识符> | *<标识符> = <标识符> | *<标识符>= &<标识符> | *<标识符> = (<类型> * malloc)(sizeof(<类型>)*<无符号整数>)
+<复合语句> -> <语句表> | <选择语句> | <循环语句> 
+<选择语句> -> <选择条件>; | <选择条件> <复合语句> | <选择条件> {<复合语句>}
+<选择条件> -> if <条件判断> |else if <条件判断> | else
+<条件判断> -> (<逻辑表达式>) | (;;<逻辑表达式>) | (<赋值语句>;;<逻辑表达式>) | (;<算术表达式>;<逻辑表达式>) | (<赋值语句>;<算术表达式>;<逻辑表达式>)
+<循环语句> -> <循环条件>; | <循环条件> <复合语句> | <循环条件> {<复合语句>}
+<循环条件> -> while <条件判断> | for <条件判断> | do {<复合语句>}while<条件判断>
+<语句表>  <变量说明><语句表> | <赋值语句> ;<语句表> | <输入语句><语句表> | <输出语句><语句表> | <函数调用><语句表> | <赋值语句>; | <输出语句> | <函数调用> | <返回><语句表>
+<赋值语句>  <标识符> = <算术表达式> 
+<输入语句> -> scanf(“<格式列>”,<输入标识符列>); 
+<输出语句> -> printf(“<格式列>”,<输出标识符列>); 
+<函数调用> -> <标识符>(<实参表>);
+<返回>return <标识符>; | return <整数> ;
+·算术表达式定义
+<算术表达式>  <算术表达式> ω0 <项>  | ω2 <算术表达式> | <算术表达式>ω2 
+| <项> 
+<项>  <项> ω1  <因子> | <因子>
+<因子>  <算术量> | ( <算术表达式> ) 
+<算术量>  <逻辑表达式> | <结构体标识符> | <数组标识符> | <指针标识符> | <标识符> | <常数>  |’<字母>’
+·逻辑表达式定义
+	<逻辑表达式> -> <逻辑表达式>ω3 <逻辑表达式> | ω3 <逻辑表达式> | <算术表达式> | <算术表达式>ω4 <算术表达式>
+·类型定义
+	<类型> -> int | float | char | struct
+<数类型>  int | float 
+<字符类型> -> char 
+<结构体类型> ->struct
+·单词集定义
+<标识符>  <字母> | <字母> <标识符字符串>
+<标识符字符串> <数字> |  <字母> | <字母> <标识符字符串> | <数字> <标识符字符串> 
+<数组标识符> -><标识符>[<无符号整数>] | <标识符>[<无符号整数>][<无符号整数>]
+<结构体标识符> -><标识符>.<标识符> | <标识符> -><标识符>
+<指针标识符> ->*<标识符> | *(<标识符>+<无符号整数>)
+<常数>  <整数> | <实数>
+<整数>  ω0 <无符号整数> 
+<无符号整数>  <数字> |  <数字> <无符号整数>
+<实数>  <整数> . <无符号数>
+<一维> -> { } | {<数组>}
+<数组> -> <数字>,<数组> | <数字>
+<二维> -> {} | {<一维组>}
+<一维组> -> <一维>,<一维组> | <一维>
+<字符串> -> { } | {<字母组>} | “<字符串字母>”
+<字母组> -> ‘<字母>’,<字母组> | ‘<字母>’
+<字符串字母> -> <字母><字符串字母> | <字母>
+<二维字符串> -> { } | {<字符串组>}
+<字符串组> -> <字符串>,<字符串组> | <字符串>
+<结构体> -> {<变量说明列>}
+<变量说明列> -> <变量说明>,<变量说明列> | <变量说明>
+<标识符列> -> <标识符>,<标识符列> | <标识符>
+<赋值表> -> <一维>,<赋值表> | <二维>,<赋值表> | <字符串>,<赋值表> | <二维字符串>,<赋值表> | <常数>,<赋值表> | ‘<字母>’, <赋值表> | <标识符>,<赋值表> | <一维> | <二维> | <字符串> | <二维字符串> | <常数> | ‘<字母>’ | <标识符>
+<格式列> -> %d | %c | %f | %s
+<输入标识符列> -> &<标识符>,<输入标识符列> | &<数组标识符>,<输入标识符列> | &<结构体标识符>,<输入标识符列> | <标识符>,<输入标识符列> | <标识符>+<无符号整数> | &<标识符> | &<数组标识符> | &<结构体标识符> | <标识符> | <标识符>+<无符号整数>
+<输出标识符列> -> <标识符>,<输出标识符列> | <数组标识符>,<输出标识符列> | <结构体标识符>,<输出标识符列> | <指针标识符>,<输出标识符列> | <标识符> | <数组标识符> | <结构体标识符> | <指针标识符>
+<形参表> -><类型><标识符>,<形参表>|<类型>*<标识符>,<形参表> | <数组标识符>,<形参表> | <类型><标识符>[],<形参表> | <类型><标识符>[][<无符号整数>],<形参表> | <类型><标识符> | <类型>*<标识符> | <类型><标识符>[] | <类型><数组标识符> | <类型><标识符>[][<无符号整数>]
+	<实参表> -><标识符>,<实参表> |  &<标识符>,<实参表> | <数组标识符>,<实参表> | <结构体标识符>,<实参表> | <指针标识符>,<实参表> | <标识符> | &<标识符> | <数组标识符> | <结构体标识符> | <指针标识符>
+·字符集定义
+<字母>  A|B|C|…|Z|a|b|c|…|z
+<数字>  0|1|2|3|4|5|6|7|8|9
+
+  其中：ω0 — +或-
+        ω1 — *或/
+ω2 — ++或—
+ω3 — &&或||或!
+ω4 — !=或==或>=或<=
+
+2.词法分析器
+#include"stable.h"
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<iomanip>
+#define KEY 10
+#define MUTP 7
+struct wordinfo
+{
+    char word[30];///程序里单词本身
+    char wordtype;///单词类型，i为标识符，p为界符，c为常数，k为关键字
+};
+///以下在全局变量中
+//wordinfo->wordtype=4:i,p,c,k;
+int memory=4,l=0;
+int pword,m,test;
+char pw,kword[KEY][7]={"int","float","char","main","return","if","else","while","for","do"};
+struct tnode itnode;//先创建一些固定内容
+struct tnode rtnode;
+struct tnode ctnode;
+void fillstable();
+void testable();
+void stable()
+{
+    itnode.tval='i';
+    itnode.tpoint=NULL;
+    itnode.next=&rtnode;
+
+    rtnode.tval='r';
+    rtnode.tpoint=NULL;
+    rtnode.next=&ctnode;
+
+    ctnode.tval='c';
+    ctnode.tpoint=NULL;
+    ctnode.next=NULL;
+
+    thead->next=&itnode;//对已有类型表的固定内容连接
+    tnode *ttail = &ctnode;//对已有类型表的固定内容连接
+}
+int ppp1=0,ppp2=0,ppp3=0;
+int main()
+{
+    stable();
+    pword=0;
+    FILE*fp;
+    snode *p,*q=shead;
+
+    if(!(fp=fopen("f.txt","r")))
+    {
+        cout<<"can not open the file"<<endl;
+        return 1;
+    }
+    char a='1',b='1',id[3]={'i','c','k'},pword2[MUTP][30]={"&&","||","==",">=","<=","++","--"};
+    int i=0,j=0,k=0,n=0;//k为0，界符直接送出
+    struct wordinfo *thisword[50];
+
+    for(test=0;a!=EOF;test++)
+    {
+        thisword[test]=(struct wordinfo*)malloc(sizeof(struct wordinfo));
+        if (pword)
+        {
+            if(pword==1)
+            {
+                thisword[test]->word[0]=pw;
+                thisword[test]->word[1]='\0';
+                thisword[test]->wordtype='p';
+                p=new snode;
+                p->name= thisword[test]->word;
+                stail->next=p;
+                stail=p;
+                pword=0;
+            }
+            else
+            {
+                strcpy(thisword[test]->word,pword2[l]);
+                thisword[test]->wordtype='p';
+                p=new snode;
+                p->name= thisword[test]->word;
+                stail->next=p;
+                stail=p;
+                pword=0;
+            }
+        }
+        else
+        {
+
+            a=fgetc(fp);
+            while(a==' '||a=='\n'||a=='\r'||a=='\t')
+                a=fgetc(fp);
+
+            while(a!=' '&&a!='\n'&&a!='\r'&&a!='\t'&&a!=EOF)
+            {
+                if(!k&&(a=='{'||a=='}'||a==';'||a==','||a=='='||a=='+'||a=='-'||a=='*'||a=='/'||a=='('||a==')'||a=='!'||a=='&'||a=='|'||a=='>'||a=='<'))
+                {
+                    if(a=='&'||a=='|'||a=='='||a=='>'||a=='<')
+                    {
+                        n=1;
+                        if(a=='&')
+                        {
+                            a=getc(fp);
+                            if(a!='&')
+                            {
+                                cout<<"词法错误3！";
+                                pword=0;//还原外层变量
+                                stail=shead;//删去已填的符号表
+                                return 0;
+                            }
+                            strcpy(thisword[test]->word,pword2[0]);
+                            thisword[test]->wordtype='p';
+                            p=new snode;
+                            p->name= thisword[test]->word;
+                            stail->next=p;
+                            stail=p;
+                        }
+                        else if(a=='|')
+                        {
+                            a=getc(fp);
+                            if(a!='|')
+                            {
+                                cout<<"词法错误3！";
+                                pword=0;//还原外层变量
+                                stail=shead;//删去已填的符号表
+                                return 0;
+                            }
+                            strcpy(thisword[test]->word,pword2[1]);
+                            thisword[test]->wordtype='p';
+                            p=new snode;
+                            p->name= thisword[test]->word;
+                            stail->next=p;
+                            stail=p;
+                        }
+                        else
+                        {
+                            b=getc(fp);
+                            if(b!='=')
+                            {
+                                fseek(fp,-1,1);
+                                n=0;
+                            }
+                            else
+                            {
+                                if(a=='=')strcpy(thisword[test]->word,pword2[2]);
+                                if(a=='>')strcpy(thisword[test]->word,pword2[3]);
+                                if(a=='<')strcpy(thisword[test]->word,pword2[4]);
+                                thisword[test]->wordtype='p';
+                                p=new snode;
+                                p->name= thisword[test]->word;
+                                stail->next=p;
+                                stail=p;
+                            }
+                        }
+                    }
+                    if(!n)
+                    {
+                        thisword[test]->word[0]=a;
+                        thisword[test]->word[1]='\0';
+                        thisword[test]->wordtype='p';
+                        p=new snode;
+                        p->name= thisword[test]->word;
+                        stail->next=p;
+                        stail=p;
+                    }
+                    n=0;
+                    break;
+                }
+                else if(k&&(a=='{'||a=='}'||a==';'||a==','||a=='='||a=='+'||a=='-'||a=='*'||a=='/'||a=='('||a==')'||a=='!'||a=='&'||a=='|'||a=='>'||a=='<'))
+                {
+                    if(a=='&'||a=='|'||a=='='||a=='>'||a=='<')
+                    {
+                        n=1;
+                        if(a=='&')
+                        {
+                            a=getc(fp);
+                            if(a!='&')
+                            {
+                                cout<<"词法错误3！";
+                                pword=0;//还原外层变量
+                                stail=shead;//删去已填的符号表
+                                return 0;
+                            }
+                            l=0;
+                            pword=2;
+                        }
+                        else if(a=='|')
+                        {
+                            a=getc(fp);
+                            if(a!='|')
+                            {
+                                cout<<"词法错误3！";
+                                pword=0;//还原外层变量
+                                stail=shead;//删去已填的符号表
+                                return 0;
+                            }
+                            l=1;
+                            pword=2;
+                        }
+                        else
+                        {
+                            b=getc(fp);
+                            if(b!='=')
+                            {
+                                fseek(fp,-1,1);
+                                n=0;
+                            }
+                            else
+                            {
+                                if(a=='=')l=2;
+                                if(a=='>')l=3;
+                                if(a=='<')l=4;
+                                pword=2;
+                            }
+                        }
+                    }
+                    if(!n)
+                    {
+                        pw=a;
+                        pword=1;
+                    }
+                    n=0;
+                    thisword[test]->word[i]='\0';
+
+                    for(m=0;m<KEY;m++)
+                        if(strcmp(thisword[test]->word,kword[m])==0)
+                        {
+                            j=2;
+                            break;
+                        }
+
+                    thisword[test]->wordtype=id[j];
+                    if(!j)
+                    {
+
+                        while(q->next!=NULL)
+                        {
+
+                            q=q->next;
+                            if(q->name==thisword[test]->word)
+                            {
+
+                                j=3;
+                                break;
+                            }
+                        }
+                        q=shead;
+                    }
+                    if(j==3) {cout<<"^^^";break;}
+                    p=new snode;
+                    p->name= thisword[test]->word;
+                    stail->next=p;
+                    stail=p;
+                    break;
+                }
+                else if(j|| (!i&&(a<='9'&&a>='0')) )
+                {
+                    if(a<'0'||a>'9')
+                    {
+                        printf("词法错误2！");
+                        pword=0;//还原外层变量
+                        stail=shead;//删去已填的符号表
+                        return 0;
+                    }
+                    thisword[test]->word[i]=a;
+                    j=1;//表明为常数
+                    k=1;//界符放入外层变量
+                    i++;
+                }
+                else if((a>='0'&&a<='9')||(a>='a'&&a<='z')||(a>='A'&&a<='Z'))
+                {
+                    thisword[test]->word[i]=a;
+                    k=1;
+                    i++;
+                }
+
+                else
+                {
+                    printf("词法错误1！");
+                    pword=0;
+                    stail=shead;
+                    return 0;
+                }
+                a=fgetc(fp);
+            }
+            if(a==' '||a=='\n'||a=='\r'||a=='\t')
+            {
+                thisword[test]->word[i]=='\0';
+                for(m=0;m<KEY;m++)
+                {
+                    if(strcmp(thisword[test]->word,kword[m])==0)
+                    {
+                        j=2;
+                        break;
+                    }
+                }
+                thisword[test]->wordtype=id[j];
+                p=new snode;
+                p->name= thisword[test]->word;
+                stail->next=p;
+                stail=p;
+            }
+
+
+        }
+        i=0;
+        j=0;
+        k=0;
+        printf("%s\n",thisword[test]->word);
+        printf("%c\n",thisword[test]->wordtype);
+    }
+
+    fclose(fp);
+    fillstable();
+    return 0;
+}
+void fillstable()
+{
+    cout<<" _________ _________ _________ _________"<<endl;
+    cout<<"|   NAME  |   TYPE  |   CAT   |   ADDR  |"<<endl;
+    cout<<"|_________|_________|_________|_________|"<<endl;
+     int j=0;
+     snode* p=shead;
+     snode* q=shead,*q1=shead;
+     while(p->next!=NULL)
+     {
+         //snode* p1=p;//这便于从当前指针获取某些信息后，修改前一指针的信息
+         p=p->next;
+
+         if(p->name=="{"||p->name=="}"||p->name==";"||p->name=="+"||p->name=="-"||p->name=="*"||p->name=="/"||p->name=="<"||p->name==">"||p->name=="=="||p->name==">="||p->name=="<="||p->name=="&&"||p->name=="||"||p->name=="!"||p->name==","||p->name=="("||p->name==")"||p->name=="++"||p->name=="--")
+         {
+             p->cat="p";
+             //cout<<"p ";
+             cout<<setiosflags(ios_base::left)<<setw(11)<<p->name;
+             printf("    NULL   ");
+             cout<<setiosflags(ios_base::left)<<setw(11)<<p->cat;
+             printf("NULL  ");
+             cout<<endl;
+             p->typel=NULL;
+             p->addr=-1;
+         }
+         else if(p->name.at(0)<'0'||p->name.at(0)>'9')
+         {
+            for(m=0;m<3;m++)
+            {
+                if(p->name==kword[m])
+                {
+                    j=1;
+                    break;
+                }
+            }
+            if(j)
+            {
+                p->cat="k";
+                //cout<<"k ";
+                cout<<setiosflags(ios_base::left)<<setw(11)<<p->name;
+                printf("    NULL   ");
+                cout<<setiosflags(ios_base::left)<<setw(11)<<p->cat;
+                printf("NULL  ");
+                cout<<endl;
+                p->typel=NULL;
+                p->addr=-1;
+                q1=q;
+                q=p;
+            }
+            for(m=3;m<KEY;m++)
+            {
+                if(p->name==kword[m])
+                {
+                    j=2;
+                    break;
+                }
+            }
+            if(j==2)
+            {
+               p->cat="k";
+               //cout<<"k ";
+               p->typel=NULL;
+               p->addr=-1;
+               cout<<setiosflags(ios_base::left)<<setw(11)<<p->name;
+               printf("    NULL   ");
+               cout<<setiosflags(ios_base::left)<<setw(11)<<p->cat;
+               printf("NULL  ");
+               cout<<endl;
+               if(p->name=="main")
+                    q=q1;
+            }
+            if(!j)
+            {
+                if(q==shead)///如果是没有给出类型的标识符
+                {
+                    p->cat="v";///错误类型
+                    //cout<<"x ";
+                    p->typel=NULL;
+                    cout<<setiosflags(ios_base::left)<<setw(11)<<p->name;
+                    printf("    NULL   ");
+                    cout<<setiosflags(ios_base::left)<<setw(11)<<p->cat;
+                    printf("NULL  ");
+                    cout<<endl;
+                    p->addr=-1;
+                }
+                else
+                {
+                    p->cat="v";
+                    if(q->name=="int")
+                    {
+                        p->typel=&itnode;
+                        p->addr=memory;
+                        memory+=4;
+                        cout<<setiosflags(ios_base::left)<<setw(11)<<p->name;
+                        printf("  &itnode  ");
+                        cout<<setiosflags(ios_base::left)<<setw(11)<<p->cat;
+                        cout<<setiosflags(ios_base::left)<<setw(11)<<p->addr;
+                        cout<<endl;
+                    }
+                    if(q->name=="char")
+                    {
+                        p->typel=&ctnode;
+                        p->addr=memory;
+                        memory+=1;
+                        cout<<setiosflags(ios_base::left)<<setw(11)<<p->name;
+                        printf("  &ctnode  ");
+                        cout<<setiosflags(ios_base::left)<<setw(11)<<p->cat;
+                        cout<<setiosflags(ios_base::left)<<setw(11)<<p->addr;
+                        cout<<endl;
+                    }
+                    if(q->name=="float")
+                    {
+                        p->typel=&rtnode;
+                        p->addr=memory;
+                        memory+=8;
+                        cout<<setw(10)<<p->name;
+                        printf("  &rtnode  ");
+                        cout<<setiosflags(ios_base::left)<<setw(11)<<p->cat;
+                        cout<<setiosflags(ios_base::left)<<setw(11)<<p->addr;
+                        cout<<setiosflags(ios_base::left)<<endl;
+                    }
+                }
+            }
+         }
+         j=0;
+     }
+    return ;
+}
+
+
