@@ -1,0 +1,266 @@
+计1806-兰时宇-20184381 第二阶段报告
+
+1.当前进展
+在之前做完符号表之后，我承担了目标代码生成部分的任务，目前已经大体完成了目标代码生成的代码，但是在处理if和while语句时仍有一些问题需要修改，目标代码生成的相关设计如下：
+
+（1）寄存器的设计
+由于生成的目标代码中对数据的操作需要利用寄存器，所以我定义了寄存器结构体registers,放置在头文件registers.h中，由于目前还没有完全整理代码，所有可能之后还要其他的删减或添加，目前registers.h的内容如下：
+#ifndef REGISTERS_H_INCLUDED
+#define REGISTERS_H_INCLUDED
+#include <iostream>
+#include <vector>
+#include "registers.h"
+#include "Gen.h"
+using namespace std;
+struct registers
+{
+	string	name;
+	vector<string> Rvalue;
+	registers(string n){ name = n; }
+	registers(){};
+	void clearPush(string n)
+	{
+		Rvalue.clear();
+		Rvalue.push_back(n);
+	}
+};
+
+registers regR("R");
+
+bool inReg(string n)
+{
+    bool flag = false;
+    for (int i = 0; i < regR.Rvalue.size(); i++)
+    {
+        if (regR.Rvalue[i] == n)
+            flag = true;
+    }
+    return flag;
+}
+#endif // REGISTERS_H_INCLUDED
+
+在此文件中，我定义了寄存器结构体，其中含有寄存器名称和寄存器存储的内容两个部分，其中存储的内容我用的是string类型的数组(vector)，一开始定义时并没有确定该使用什么代表寄存器存储的内容，所以是定义了一个vector，当时的想法是以防万一用的上，目前看来没有必要，其实只要一个string类型就可以了，不过目前的其他代码是按照vector制作的，如果时间来得及会修改为string,但不修改也不会影响程序功能。
+
+（2）四元式
+在处理四元式时，我使用了以下结构体，其中void ConvertCodeToOp(int);和void ConvertOpToCode(string);为四元式第一个元素号码形式和字符串形式的转化函数，最后两个函数为构造函数，用来给四元式赋值时使用
+struct GenStruct
+{
+	int label;
+	string op;
+	int code;     //第一元素
+	string addr1="0"; //第二元素
+	string addr2="0"; //第三元素
+	string result="0";//第四元素
+	int out_port = 0;  //记录该四元式是否为一个基本块的入口，是则为1，否则为0。
+
+	void ConvertCodeToOp(int);
+	void ConvertOpToCode(string);
+
+	GenStruct(int l){ label = l; }
+	GenStruct(int l,string op,string a1,string a2,string res){
+		label = l, this->op=op, ConvertOpToCode(op), addr1 = a1, addr2 = a2, result = res;
+	}
+
+（3）目标代码生成的思路
+首先，我定义了基本块结构体：
+struct basicBlock
+{
+	string name;
+	vector<GenStruct> gens;
+	vector <string> codes;
+};
+结构体内包含基本块名称(目前只是做测试时用，在提交最终代码时可能会删掉此变量)、四元式数组和此块的目标代码数组（存储此块中生成的目标代码）。
+
+接下来我定义了一个类，这个类命名为codeTable，是最终生成目标代码的总类，里面的数据包含了基本块类型的数组，即四元式分成的若干个基本块，还有一些其他的相关函数，最终只需要生成一个此类的对象，即可根据事先准备好的四元式生成目标代码，生成代码的过程由于if和while没有处理完全，所以只展示顺序执行语句的目标代码生成过程，此部分的函数如下：
+vector<string> judge_stack;
+vector<string> label_stack;
+vector<string> codeTable::createcode(GenStruct gen)
+{
+	vector<string> codes;
+	int code = gen.code;
+	clearNotUse(gen);
+	registers reg; int regindex,temp;
+    string s;
+	switch (code)
+	{
+
+	case 42://op = "*";
+		if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("MUL R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("MUL R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+		break;
+
+	case 43://op = "+";
+
+		if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("ADD R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("ADD R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+		break;
+
+	case 45://op = "-";
+	    if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("SUB R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("SUB R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+		break;
+
+	case 47://op = "/";
+		if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("DIV R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("DIV R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+		break;
+
+	case 61://op = "=";
+
+		//reg = findreg(gen.addr1, regindex);
+        //此处可以加一个判断，R中元素是否等于gen.addr1
+		codes.push_back("LD R," + gen.addr1);
+		codes.push_back("ST R," + gen.result);
+		//regs[regindex].Rvalue.push_back(gen.result);
+		regR.clearPush(gen.result);
+		break;
+
+    case 70://op = ">"
+        if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("GT R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("GT R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+        break;
+
+    case 71://op = "<"
+        if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("LT R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("LT R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+        break;
+
+    case 72://op = ">="
+        if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("GE R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("GE R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+        break;
+
+    case 73://op = "<="
+        if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("LE R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("LE R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+        break;
+
+    case 74://op = "=="
+        if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("EQ R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("EQ R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+        break;
+
+    case 75://op = "!="
+        if(!inReg(gen.addr1))
+		{
+		    codes.push_back("LD R," + gen.addr1);
+            codes.push_back("NE R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+		}
+		else
+        {
+            codes.push_back("NE R," + gen.addr2);
+            codes.push_back("ST R," + gen.result);
+        }
+		regR.clearPush(gen.result);
+        break;
+
+	
+	default:
+		break;
+	}
+	return codes;
+}
+
+if和while的代码生成在调试后将加入case语句中。
+
+2.遇到的问题和困难
+由于时间紧迫，目前的困难在于尽快完成目标代码的生成功能，不过还没完成的部分我已经有了思路，应该可以尽快做完。
+但最大的困难在于刚刚得知之前我做的活动记录不符合要求，是错误的，但是现在已经很难有时间修改了，所以我会尽量在完成目标代码生成的情况下修改，如果时间不够也只能放弃修改了。
+
+3.下一步的计划
+    下一步我的计划是尽快做好目标代码生成的功能，然后和队友们把代码拼接到一起进行测试和调整，如果有时间的话会尽可能修改活动记录，如果没有时间也就只能放弃修改，优先考虑整体代码的可运行性。
+
+
+
+
