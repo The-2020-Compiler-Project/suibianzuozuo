@@ -1,0 +1,423 @@
+
+1、当前进展
+在做完语义分析之后，我负责四元式优化的部分，现在大体框架已经写完，能输出算数表达式基本块的优化四元式，但while和循环的四元式优化还有没做完，中间有许多bug
+相关的设计如下：
+
+struct DagNode
+{
+	int fatherNum;					//是否有父节点
+	bool isSingle;					//是否是单分支
+	bool isLeaf;
+	bool isVal;
+	double value;
+	char opt;
+	int NodeNum;					//该节点的编号
+	int RChild,LChild;				//左右子节点的编号
+	int flagNum;					//依附于该节点的变量数
+	string flags[20];				//依附于该节点的变量
+	DagNode()
+	{
+		isVal = false;
+		fatherNum = 0;
+		flagNum = 0;
+		isLeaf = false;
+		isSingle = false;
+	}
+
+};
+
+struct VarNode
+{
+    string str;						
+	int flagNode;
+	VarNode()
+	{
+		flagNode = 0;
+	}
+};
+
+DagNode *dag[100];
+VarNode var[100];
+int dagNum,varNum;
+ifstream fin;
+ofstream fout;
+string str1,str2,str3;
+char opt;
+bool BisNew,CisNew;
+
+
+void PrintStr(string str)			 
+{
+	string str1;
+	int i,l;
+	double k;
+	char s[100];
+	l = str.length();
+	if (l>0 && str[0]>=48 && str[0]<=57)
+	{
+		for(i=0; i<l; i++)
+			s[i] = str[i];
+		s[i] = '\0';
+		k = atof(s);
+		fout<<k;
+		return;
+	}
+	for (i=0; i<l; i++)
+		fout<<str[i];
+
+}
+bool isOpt(char ch)			//是否为界符 
+{
+	switch (ch)
+	{
+	case '+': return true;
+	case '-': return true;
+	case '*': return true;
+	case '/': return true;
+	case '[': return true;
+	}
+	return false;
+
+}
+
+double Calc(double a, char op, double b)		//合并已知量 p = a op b 
+{
+	switch (op)
+	{
+	case '+': return a+b;
+	case '-': return a-b;
+	case '*': return a*b;
+	case '/': return a/b;
+	}
+	return 0;
+}
+bool strEqual(string str1,string str2)  		//判断两个字符串是否相同 
+{
+	int i,l;
+	l = str1.length();
+	i = str2.length();
+	if (l!=i) return false;
+	for (i=0; i<l; i++)
+	  if (str1[i]!=str2[i]) return false;
+	return true;
+}
+int findVar(string str)			// 寻找已知节点 
+{
+	double k;
+	int i;
+	char s[100];
+	string ss;
+	ss = str;
+	if (str.length()>0 && str[0]>=48 && str[0]<=57)
+	{
+		for(i=0; i<str.length(); i++)
+			s[i] = str[i];
+		s[i]='\0';
+		k = atof(s);
+		sprintf(s,"%lf",k);
+		ss="";
+		for (int i=0; i<strlen(s);i++)
+			ss+=s[i];
+	}
+	for (i=1; i<=varNum; i++)
+	{
+		if (strEqual(ss,var[i].str))
+			return i;
+	}
+	return 0;
+}
+void work4(int n)
+{
+	int a,k;
+	int i;
+	char s[100];
+	a = findVar(str1); // 判断节点是否存在 
+	if (a==0) //若不存在，创建新节点 
+	{
+		varNum++;
+		a = varNum;
+		var[a].str = str1;
+		var[a].flagNode = n;
+		dag[n]->flagNum++;
+		dag[n]->flags[dag[n]->flagNum] = str1;
+	}
+	else
+	{
+		k = var[a].flagNode;
+		if (!dag[k]->isLeaf)
+		{
+			for (i=1; i<=dag[k]->flagNum; i++)
+			  if (strEqual(str1,dag[k]->flags[i]))
+			  {
+				  for (int j=i+1; j<=dag[k]->flagNum; j++)
+					  dag[k]->flags[j-1] = dag[k]->flags[j];
+				  break;
+			  }
+			  dag[k]->flagNum--;
+		}
+		var[a].flagNode = n;
+		dag[n]->flagNum++;
+		dag[n]->flags[dag[n]->flagNum] = str1;
+	}
+}
+void work32(int b,int c)
+{
+	int i,k1,n,k2;
+	k1 = var[b].flagNode;
+	k2 = var[c].flagNode;
+	n = 0;
+	for (i=1; i<=dagNum; i++)
+		if (dag[i]->opt == opt && dag[i]->LChild ==k1 && dag[i]->RChild ==k2)
+		{
+			n = i;
+			break;
+		}
+	if (n==0)
+	{
+		dagNum++;
+		n = dagNum;
+		dag[n] = new DagNode();
+		dag[n]->LChild = k1;
+		dag[n]->RChild = k2;
+		dag[k1]->fatherNum++;
+		dag[k2]->fatherNum++;
+		dag[n]->opt = opt;
+	}
+	work4(n);
+}
+void work31(int b)
+{
+	int i,k,n;
+	k = var[b].flagNode;
+	n = 0;
+	for (i=1; i<=dagNum; i++)
+		if (dag[i]->opt == opt && dag[i]->isSingle && dag[i]->RChild ==k)
+		{
+			n = i;
+			break;
+		}
+	if (n==0)
+	{
+		dagNum++;
+		n = dagNum;
+		dag[n] = new DagNode();
+		dag[n]->isSingle = true;
+		dag[n]->RChild = k;
+		dag[k]->fatherNum++;
+		dag[n]->opt = opt;
+	}
+	work4(n);
+
+}
+void work24(int b, int c)
+{
+	double p;
+	int k;
+	int i;
+	char s[100];
+	string str;
+	p = Calc(dag[var[b].flagNode]->value,opt,dag[var[c].flagNode]->value);
+	if (CisNew)
+	{
+       varNum--;
+	   delete(dag[dagNum]);
+	   dagNum--;
+	}
+	if (BisNew)
+	{
+       varNum--;
+	   delete(dag[dagNum]);
+	   dagNum--;
+	}
+	sprintf(s,"%lf",p);
+	str = "";
+	for (i=0; i<strlen(s); i++)
+		str+=s[i];
+	k= findVar(str);
+	if (k ==0)
+	{
+		dagNum++;
+		varNum++;
+		k = varNum;
+		var[k].str = str;
+		var[k].flagNode = dagNum;
+		dag[dagNum] = new DagNode();
+		dag[dagNum]->isVal = true;
+		dag[dagNum]->value =  p;
+		dag[dagNum]->flags[1] = str;
+		dag[dagNum]->flagNum = 1;
+		dag[dagNum]->isLeaf = true;
+	}
+	work4(var[k].flagNode);
+}
+void work23(int b)
+{
+	double p;
+	int k;
+	int i;
+	char s[100];
+	string str;
+	p = Calc(0,opt,dag[var[b].flagNode]->value);
+	if (BisNew)
+	{
+       varNum--;
+	   delete(dag[dagNum]);
+	   dagNum--;
+	}
+	sprintf(s,"%lf",p);
+	str = "";
+	for (i=0; i<strlen(s); i++)
+		str+=s[i];
+	k= findVar(str);
+	if (k ==0)
+	{
+		dagNum++;
+		varNum++;
+		k = varNum;
+		var[k].str = str;
+		var[k].flagNode = dagNum;
+		dag[dagNum] = new DagNode();
+		dag[dagNum]->isVal = true;
+		dag[dagNum]->value =  p;
+		dag[dagNum]->flags[1] = str;
+		dag[dagNum]->flagNum = 1;
+		dag[dagNum]->isLeaf = true;
+	}
+	work4(var[k].flagNode);
+}
+void work22(int b, int c)
+{
+	if (dag[var[c].flagNode]->isVal && dag[var[b].flagNode]->isVal)
+		work24(b,c);
+	else
+		work32(b,c);
+}
+void work21(int b)
+{
+	if (dag[var[b].flagNode]->isVal)
+		work23(b);
+	else
+		work31(b);
+}
+
+
+void work1()
+{
+	string str;
+	bool isSin;
+	int i,b,c;
+	int ListType;
+	char st[100];
+	char s[100];
+
+	int len;
+	while(!fin.eof())
+	{
+		isSin = true;
+		fin.getline(st,80);
+		len = strlen(st);
+        if (len<1) break;
+		str = "";
+		i = 0;
+		while (st[i]!=':')
+		{
+			if (st[i]!=' ')
+			  str += st[i];
+			i++;
+		}
+	    str1 = str;
+		str = "";
+		i = i+2;
+		while (!isOpt(st[i])&& i<len)
+		{
+		   if (st[i]!=' ')
+			str += st[i];
+			i++;
+		}
+		str2 = str;
+		if (i<len)
+		{
+			isSin = false;
+			opt = st[i];
+			if (opt=='[')
+			  len--;
+			str = "";
+			i++;
+		    while (i<len)
+			{
+			   if (st[i]!=' ')
+				str += st[i];
+				i++;
+			}
+			str3 = str;
+			if (str2.length() ==0) 
+				ListType = 1;
+			else
+			    ListType = 2;
+		}
+		else
+		{
+			ListType = 0;
+		}
+		b= findVar(str2);
+		BisNew = false;
+		if (b ==0)
+		{
+			BisNew = true;
+			dagNum++;
+			varNum++;
+			b = varNum;
+			var[b].str = str2;
+			var[b].flagNode = dagNum;
+			dag[dagNum] = new DagNode();
+			if (str2[0]>=48 && str2[0]<=57)
+			{
+				dag[dagNum]->isVal = true;
+				for ( i=0; i<str2.length(); i++)
+					s[i] = str2[i];
+				s[i] = '\0';
+				dag[dagNum]->value = atof(s);
+			}
+			dag[dagNum]->flags[1] = str2;
+			dag[dagNum]->flagNum = 1;
+			dag[dagNum]->isLeaf = true;
+		}
+		switch(ListType)
+		{
+		case 0: work4(var[b].flagNode);
+			    break;
+		case 1: work21(b);
+			    break;
+		case 2: 
+			{
+				c= findVar(str3);
+				CisNew = false;
+				if (c ==0)
+				{
+					CisNew = true;
+					dagNum++;
+					varNum++;
+					c = varNum;
+					var[c].str = str3;
+					var[c].flagNode = dagNum;
+					dag[dagNum] = new DagNode();
+					if (str3[0]>=48 && str3[0]<=57)
+					{
+						dag[dagNum]->isVal = true;
+						for ( i=0; i<str3.length(); i++)
+							s[i] = str3[i];
+						s[i] = '\0';
+						dag[dagNum]->value = atof(s);
+					}
+					dag[dagNum]->flags[1] = str3;
+					dag[dagNum]->flagNum = 1;
+					dag[dagNum]->isLeaf = true;
+				}
+				work22(b,c);
+			}
+		}
+	}
+}
+
+计划：
+尽快完成四元式优化的部分，然后和做后端的另一个同学合一下代码。
