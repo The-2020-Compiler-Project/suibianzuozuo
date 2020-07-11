@@ -1,0 +1,21 @@
+int main()
+{
+    int a,b,c;
+    a = b / c
+    int d,e,f;
+    d = d - e
+    if(a<b)
+	{
+    		d = 1
+	}
+    else
+	{
+   		d = 2
+	}
+
+    while(a==b)   
+	{
+   		d=3
+	}
+    return 0;
+}

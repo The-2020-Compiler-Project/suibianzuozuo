@@ -1,0 +1,2 @@
+F:\study\编译原理\compiler\compiler\Debug\compiler.exe
+F:\study\编译原理\compiler\compiler\Debug\compiler.pdb
