@@ -1,0 +1,19 @@
+int main()
+{
+	int a,b,c;
+	a = 5
+	if(a < b)
+	{
+		while( c < a)
+		{
+			c = a + b
+			int d;
+			d = c + 2
+		}
+	}
+	else
+	{
+		a =6
+	}
+	return 0;
+}
